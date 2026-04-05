@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professor Juichun - AI 助教</title>
+    <title>Professor Juichun AI Assistant</title>
     
     <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/chat-messenger.js"></script>
     <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-default.css">
     <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-layout.css">
 
     <style>
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8f9fa; }
-        #login-container { text-align: center; background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); width: 90%; max-width: 400px; z-index: 10; }
-        h2 { color: #1a73e8; margin-top: 0; }
-        p { color: #5f6368; margin-bottom: 2rem; }
-        input { padding: 12px; width: 100%; box-sizing: border-box; margin-bottom: 1.5rem; border: 2px solid #dadce0; border-radius: 8px; font-size: 16px; }
-        input:focus { border-color: #4285f4; outline: none; }
-        button { padding: 12px 24px; background-color: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; width: 100%; transition: background 0.2s; }
-        button:hover { background-color: #185abc; }
-        
-        #chat-interface { display: none; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; background: white; }
-        /* 讓對話元件填滿容器 */
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
+        #login-container { text-align: center; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }
+        input { padding: 10px; width: 80%; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background-color: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #chat-interface { display: none; width: 100%; height: 100vh; position: relative; }
+        /* 讓對話元件撐滿螢幕 */
         chat-messenger { width: 100%; height: 100%; }
     </style>
 </head>
@@ -28,83 +23,61 @@
 
     <div id="login-container">
         <h2>課程 AI 助教</h2>
-        <p>請輸入您的學號與姓名以開始互動</p>
-        <input type="text" id="student-info" placeholder="例如：B12345678 王小明" autocomplete="off">
-        <button onclick="startChat()">開始對話</button>
+        <input type="text" id="student-info" placeholder="請輸入學號與姓名">
+        <button onclick="startChat()">開始互動</button>
     </div>
 
     <div id="chat-interface">
         <chat-messenger 
-            id="tutor-agent"
+            id="myMessenger"
             url-allowlist="*"
             allow-fullscreen="true">
             <chat-messenger-container 
                 chat-title="Professor Juichun" 
                 enable-file-upload="true">
-                <chat-reset-session-button slot="titlebar-actions" title-text="開啟新對話"></chat-reset-session-button>
+                <chat-reset-session-button slot="titlebar-actions" title-text="重置對話"></chat-reset-session-button>
             </chat-messenger-container>
         </chat-messenger>
     </div>
 
     <script>
-        let agentInitialized = false;
+        let studentInfo = "";
+        let isRegistered = false;
 
         function startChat() {
             const info = document.getElementById('student-info').value.trim();
-            if (!info) {
-                alert("請輸入學號與姓名！");
-                return;
-            }
-
-            // 1. 切換顯示介面
+            if (!info) return alert("請輸入資訊！");
+            
+            studentInfo = info;
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('chat-interface').style.display = 'block';
 
-            // 2. 初始化 Vertex AI Agent Context
-            if (window.chatSdk && !agentInitialized) {
-                try {
-                    const messenger = document.getElementById('tutor-agent');
-                    
-                    const context = chatSdk.prebuilts.ces.createContext({
-                        // 確認部署 ID
-                        deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
-                        tokenBroker: {
-                            enableTokenBroker: false, // 關鍵：GitHub Pages 環境下不使用 OAuth
-                            apiKey: "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc", // 你的 API Key
-                            enableRecaptcha: false
-                        }
-                    });
+            // 確保 SDK 已加載且尚未註冊過
+            if (window.chatSdk && !isRegistered) {
+                const messengerElement = document.getElementById('myMessenger');
+                
+                const context = chatSdk.prebuilts.ces.createContext({
+                    // 從你的專案路徑擷取的 Deployment Name
+                    deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
+                    tokenBroker: {
+                        enableTokenBroker: false,
+                        apiKey: "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc", // 確保此 Key 在 GCP 已解除所有限制
+                        enableRecaptcha: false
+                    }
+                });
 
-                    // 註冊 Context 並關聯到 DOM 元素
-                    chatSdk.registerContext(context, messenger);
-                    agentInitialized = true;
-                    console.log("Agent Context 註冊完成");
+                // 將 Context 註冊到特定的 DOM 元素
+                chatSdk.registerContext(context, messengerElement);
+                isRegistered = true;
+                console.log("Agent Context Bound to Element");
 
-                    // 3. 自動發送身分識別訊息
-                    setTimeout(() => {
-                        // 優先嘗試使用屬性觸發（對 Generative Agent 較穩定）
-                        messenger.setAttribute('intent', `我是 ${info}，我準備好開始互動了。`);
-                        
-                        // 備用嘗試方法
-                        if (typeof messenger.sendRequest === 'function') {
-                            messenger.sendRequest(`[系統通知] 學生 ${info} 已進入教室。`);
-                        }
-                    }, 2000);
-
-                } catch (e) {
-                    console.error("初始化失敗:", e);
-                }
-            } else if (!window.chatSdk) {
-                console.error("SDK 尚未載入，請檢查網路連線。");
+                // 等待元件初始化後發送首條訊息
+                setTimeout(() => {
+                    // 使用 setAttributeintent 是啟動 Playbook 最有效的方式
+                    messengerElement.setAttribute('intent', `我是 ${studentInfo}，我準備好開始互動了。`);
+                }, 2000);
             }
         }
-
-        // 監聽來自元件的錯誤訊息
-        window.addEventListener('error', (event) => {
-            if (event.target.tagName === 'CHAT-MESSENGER') {
-                console.error("Messenger 元件內部異常:", event.error);
-            }
-        }, true);
     </script>
 </body>
 </html>
