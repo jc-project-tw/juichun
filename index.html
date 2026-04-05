@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professor Juichun - AI 助教</title>
+    
+    <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/chat-messenger.js"></script>
+    <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-default.css">
+    <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-layout.css">
+
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
+        #login-container { text-align: center; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { padding: 10px; width: 200px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background-color: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #chat-interface { display: none; width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <h2>歡迎來到課程 AI 助教</h2>
+        <p>請輸入您的學號與姓名以開始對話</p>
+        <input type="text" id="student-info" placeholder="例如：B12345678 王小明"><br>
+        <button onclick="startChat()">開始互動</button>
+    </div>
+
+    <div id="chat-interface">
+        <chat-messenger url-allowlist="*">
+            <chat-messenger-container chat-title="Professor Juichun" enable-file-upload>
+                <chat-reset-session-button slot="titlebar-actions" title-text="Start new chat"></chat-reset-session-button>
+            </chat-messenger-container>
+        </chat-messenger>
+    </div>
+
+    <script>
+        function startChat() {
+            const info = document.getElementById('student-info').value;
+            if (!info) return alert("請輸入資訊！");
+            
+            // 隱藏登入，顯示對話
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('chat-interface').style.display = 'block';
+
+            // 初始化 Agent 並自動傳送學生 ID 作為開場白
+            window.addEventListener("chat-messenger-loaded", () => {
+                const context = chatSdk.prebuilts.ces.createContext({
+                    deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
+                    tokenBroker: { enableTokenBroker: true, enableRecaptcha: false }
+                });
+                chatSdk.registerContext(context);
+                
+                // 自動幫學生發送第一條訊息給 AI，讓教授後台紀錄有依據
+                setTimeout(() => {
+                    chatSdk.sendMessage(`我是 ${info}，我準備好開始互動了。`);
+                }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>
