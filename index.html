@@ -72,15 +72,22 @@
             const info = document.getElementById('student-info').value;
             if (!info) return alert("請輸入資訊！");
             
-            studentInfo = info;
-            
             // 介面切換
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('chat-interface').style.display = 'block';
-
-            // 如果 SDK 早已載入，手動補跑初始化
-            if (typeof chatSdk !== 'undefined') {
-                initAgent();
+        
+            // 確保只在這裡註冊一次 Context
+            if (window.chatSdk) {
+                const context = chatSdk.prebuilts.ces.createContext({
+                    deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
+                    tokenBroker: {
+                        enableTokenBroker: false,
+                        apiKey: "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc", // 確保此處沒有打錯
+                        enableRecaptcha: false
+                    }
+                });
+                chatSdk.registerContext(context);
+                console.log("Final Agent Context Registered");
             }
         }
     </script>
