@@ -35,31 +35,47 @@
     </div>
 
     <script>
-        function startChat() {
-            const info = document.getElementById('student-info').value;
-            if (!info) return alert("請輸入資訊！");
-            
-            // 隱藏登入，顯示對話
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('chat-interface').style.display = 'block';
-
-            // 初始化 Agent 並自動傳送學生 ID 作為開場白
-            window.addEventListener("chat-messenger-loaded", () => {
+        let studentInfo = "";
+    
+        // 1. 預先定義初始化邏輯
+        function initAgent() {
+            if (typeof chatSdk !== 'undefined') {
                 const context = chatSdk.prebuilts.ces.createContext({
                     deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
                     tokenBroker: {
-                        enableTokenBroker: false, // 關閉 OAuth 驗證
-                        apiKey: "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc", // API key
+                        enableTokenBroker: false,
+                        apiKey: "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc",
                         enableRecaptcha: false
                     }
                 });
                 chatSdk.registerContext(context);
                 
-                // 自動幫學生發送第一條訊息給 AI，讓教授後台紀錄有依據
+                // 延遲發送身分訊息
                 setTimeout(() => {
-                    chatSdk.sendMessage(`我是 ${info}，我準備好開始互動了。`);
-                }, 1000);
-            });
+                    if (studentInfo) {
+                        chatSdk.sendMessage(`我是 ${studentInfo}，我準備好開始互動了。`);
+                    }
+                }, 2000);
+            }
+        }
+    
+        // 2. 監聽載入事件
+        window.addEventListener("chat-messenger-loaded", initAgent);
+    
+        function startChat() {
+            const info = document.getElementById('student-info').value;
+            if (!info) return alert("請輸入資訊！");
+            
+            studentInfo = info;
+            
+            // 顯示界面
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('chat-interface').style.display = 'block';
+    
+            // 如果 SDK 已經載入好了但事件沒觸發，手動跑一次
+            if (typeof chatSdk !== 'undefined') {
+                initAgent();
+            }
         }
     </script>
 </body>
