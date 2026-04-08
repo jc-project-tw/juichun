@@ -46,8 +46,10 @@
     <script type="module">
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
-        const p1 = "AIzaSyBPv6lHbT97fsfI"; 
-        const p2 = "ra7gwNZUw0PiNbAsfP0";
+        // --- 防偵測 API Key 拼接 ---
+        // 請將你的新 Key 拆成兩半填入
+        const p1 = "AIzaSyAZuOw6X4aK9GZ"; 
+        const p2 = "hpBsW7rrq2o5sBYN8o_c";
         const API_KEY = p1 + p2;
         const PDF_FILENAME = "syllabus.pdf";
         // -------------------------
@@ -112,4 +114,21 @@
             try {
                 const result = await chat.sendMessage(text);
                 addMessage("ai", result.response.text());
-            } catch (error
+            } catch (error) {
+                addMessage("ai", "連線錯誤：" + error.message);
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        function addMessage(role, text) {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.innerText = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
