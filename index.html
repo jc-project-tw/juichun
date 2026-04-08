@@ -3,79 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professor Juichun AI Assistant</title>
-    
-    <script defer src="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/chat-messenger.js"></script>
-    <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-default.css">
-    <link rel="stylesheet" href="https://www.gstatic.com/ces-console/fast/chat-messenger/prod/v1.15/themes/chat-messenger-layout.css">
-
+    <title>AI 助教 - Gemini 3.1 Pro</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
-        #login-container { text-align: center; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }
-        input { padding: 10px; width: 80%; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 10px 20px; background-color: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        #chat-interface { display: none; width: 100%; height: 100vh; position: relative; }
-        /* 讓對話元件撐滿螢幕 */
-        chat-messenger { width: 100%; height: 100%; }
+        :root { --google-blue: #4285f4; --bg-gray: #f8f9fa; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg-gray); display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        #login-box { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        #chat-ui { display: none; width: 100vw; height: 100vh; flex-direction: column; background: white; }
+        #messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 15px; background: #f1f3f4; }
+        
+        .msg { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 16px; }
+        .user { align-self: flex-end; background: var(--google-blue); color: white; border-bottom-right-radius: 2px; }
+        .ai { align-self: flex-start; background: white; color: #202124; border: 1px solid #dadce0; border-bottom-left-radius: 2px; }
+
+        .input-bar { border-top: 1px solid #eee; padding: 20px; display: flex; gap: 12px; }
+        #user-in { flex: 1; padding: 12px 20px; border: 1px solid #dfe1e5; border-radius: 30px; outline: none; }
+        
+        button { padding: 10px 25px; background: var(--google-blue); color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #loading-info { font-size: 13px; color: #5f6368; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-    <div id="login-container">
-        <h2>課程 AI 助教</h2>
-        <input type="text" id="student-info" placeholder="請輸入學號與姓名">
-        <button onclick="startChat()">開始互動</button>
+    <div id="login-box">
+        <h2 style="color: var(--google-blue);">Professor Juichun</h2>
+        <p style="color: #5f6368;">AI 助教系統 (Gemini 3.1 Pro)</p>
+        <input type="text" id="stu-name" placeholder="請輸入學號與姓名">
+        <div id="loading-info">正在準備 PDF 講義資料...</div>
+        <button id="start-btn" onclick="enterApp()" disabled style="width: 100%;">開始對話</button>
     </div>
 
-    <div id="chat-interface">
-        <chat-messenger 
-            id="myMessenger"
-            url-allowlist="*"
-            allow-fullscreen="true">
-            <chat-messenger-container 
-                chat-title="Professor Juichun" 
-                enable-file-upload="true">
-                <chat-reset-session-button slot="titlebar-actions" title-text="重置對話"></chat-reset-session-button>
-            </chat-messenger-container>
-        </chat-messenger>
+    <div id="chat-ui">
+        <div id="messages"></div>
+        <div class="input-bar">
+            <input type="text" id="user-in" placeholder="詢問關於講義的問題..." onkeypress="if(event.key==='Enter') send()">
+            <button id="send-btn" onclick="send()">發送</button>
+        </div>
     </div>
 
-    <script>
-        let studentInfo = "";
-        let isRegistered = false;
+    <script type="importmap">
+      { "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai" } }
+    </script>
+    <script type="module">
+        import { GoogleGenerativeAI } from "@google/generative-ai";
 
-        function startChat() {
-            const info = document.getElementById('student-info').value.trim();
-            if (!info) return alert("請輸入資訊！");
-            
-            studentInfo = info;
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('chat-interface').style.display = 'block';
+        // --- 使用者配置 ---
+        const API_KEY = "AIzaSyDy0mSgK5K6dAwj-dfbqxzYy8Ad4oX20Uc"; 
+        const PDF_FILENAME = "lecture.pdf"; 
+        // ----------------
 
-            // 確保 SDK 已加載且尚未註冊過
-            if (window.chatSdk && !isRegistered) {
-                const messengerElement = document.getElementById('myMessenger');
-                
-                const context = chatSdk.prebuilts.ces.createContext({
-                    // 從你的專案路徑擷取的 Deployment Name
-                    deploymentName: "projects/512548635446/locations/us/apps/b67c60af-51cd-43d7-8b5e-767d0665597f/deployments/802e7f50-ddcf-4f92-bfd4-569611c6840b",
-                    tokenBroker: {
-                        enableTokenBroker: true,
-                        accessToken: "ya29.c.c0AZ4bNpa4SrVw0IiBMP4aeHTjppukLekqLQ9xTZpsEeZawrXXwjG8XwnVzkFTlu86mxXnfPRYH3wNb_7J-kP4S28Ox1UIkFl4ZLAt6bZu6NX9RS1nTeXNxBAIl70Hl_8Jqzq_sh6Frr5DPGq3MfuEfsNqMUNswkQC_3-5emDFDQgb1-s5mDViLSd1xlsjnroqoZysacVNwgj7MThEFe61QWA_BYtLBz-Z0ubk7SeA0uEiOK_jyDp13KNLwKs19G5x0gw7ZcJ5XxrG4wL51WEAq2TVEKeVy0dv8pb-L739HWGKUN_CPrcoGbwA8By1EvjTqaH-R_FFc8Dm5qtZKgpLCAO0PAOp7PmTGSJ6X5HFlKlS08I04Mz2VMEBj67xIiaYz54kCgH399Dkea1y-ij8udSvdg2zaXtfs258ZWBXlsxwFBz_StFZtQZf6ckfcaqJQWfSFzFrl84F0Vt_RxVoIbucQ2tXvRQ15giu1Xjxwks12OxmV-k2Ic7sIfSuZWRk0Z9ekX9y5Oqe_k4Q5XpQcSM3MFi7i4l8rF2IpRi-Fy98UO3B4OnyIQ9m8meepV1beFg9Xpezrm1QccIOz2F4ZVu5xZSjY8l-jmdIalV_Uc1Y6OxBqXjj3miVOod05bym2Im3SgS-0g_VBOanM44092VqQbU6gYXUfaadx0_s4Xat4r8gM1RlgzqJ_6m8URY3lfUuuXV_taI8S80s5R09dyxkqag5Wn9QrBkf1YB9iz8bzjgeOexewfOW9wjMY2Z5ryUwoSvcd-4kBQ3ixwb9htO8M9yiV2m1puy0Ow2Oyq-W-F3UVI5kj-r7Of10V_Y4oU_Wf1W65FoQvgd237tIlUsaYhnB8SjRbi5R28gz7oae4QW2FcFcs2r78R0o5YjIV02U0IMjsaSw3O7uxFr7wp5Z3Ul4tbJ7Jk8gqq5f8iaa285jfeaZ_94qx4RcvrfIX2pmj_kfIJ5f7QdvhcOa454YemXhjFdtS8IzjOfugp-_I2gRlZzZf-I" // 注意：此 Token 通常只有 1 小時效期
-                    }
+        const genAI = new GoogleGenerativeAI(API_KEY);
+        let chat;
+        let pdfPart = null;
+
+        // 將 PDF 抓取並轉換為 Gemini 的 inlineData 格式
+        async function preparePdf() {
+            try {
+                const response = await fetch(PDF_FILENAME);
+                if (!response.ok) throw new Error("找不到 PDF 檔案");
+                const blob = await response.blob();
+                const base64 = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
                 });
-
-                // 將 Context 註冊到特定的 DOM 元素
-                chatSdk.registerContext(context, messengerElement);
-                isRegistered = true;
-                console.log("Agent Context Bound to Element");
-
-                // 等待元件初始化後發送首條訊息
-                setTimeout(() => {
-                    // 使用 setAttributeintent 是啟動 Playbook 最有效的方式
-                    messengerElement.setAttribute('intent', `我是 ${studentInfo}，我準備好開始互動了。`);
-                }, 2000);
+                
+                pdfPart = { inlineData: { data: base64, mimeType: "application/pdf" } };
+                document.getElementById('loading-info').innerText = "講義同步成功 ✅";
+                document.getElementById('start-btn').disabled = false;
+            } catch (err) {
+                document.getElementById('loading-info').innerText = "❌ 錯誤：無法載入 " + PDF_FILENAME;
+                console.error(err);
             }
+        }
+        preparePdf();
+
+        window.enterApp = () => {
+            const name = document.getElementById('stu-name').value.trim();
+            if (!name) return alert("請輸入資訊以開始。");
+
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
+
+            // 實例化 Gemini 3.1 Pro
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-3.1-pro-preview", 
+                systemInstruction: `你是一位教學助理。學生的姓名是 ${name}。
+                你已接收到一份 PDF 講義。請嚴格根據講義內容提供專業、有禮貌的解答。
+                若講義未提及相關內容，請引導學生查閱課程資料。請使用繁體中文回答。`
+            });
+
+            // 初始化對話並夾帶 PDF 資訊
+            chat = model.startChat({
+                history: [
+                    {
+                        role: "user",
+                        parts: [pdfPart, { text: "這是本學期的課程講義 PDF，請學習其中的內容。" }]
+                    },
+                    {
+                        role: "model",
+                        parts: [{ text: "你好 " + name + "！我已經準備好針對這份講義為你解答了。請問今天有什麼我可以幫你的嗎？" }]
+                    }
+                ]
+            });
+            
+            addMessage("ai", `你好 ${name}！我已經讀完 PDF 講義了。請問有什麼問題？`);
+        };
+
+        window.send = async () => {
+            const inputField = document.getElementById('user-in');
+            const btn = document.getElementById('send-btn');
+            const text = inputField.value.trim();
+            
+            if (!text || btn.disabled) return;
+
+            addMessage("user", text);
+            inputField.value = "";
+            btn.disabled = true;
+
+            try {
+                const result = await chat.sendMessage(text);
+                addMessage("ai", result.response.text());
+            } catch (error) {
+                addMessage("ai", "發生連線錯誤：" + error.message);
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        function addMessage(role, text) {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.innerText = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
         }
     </script>
 </body>
