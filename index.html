@@ -88,8 +88,7 @@
             document.getElementById('chat-ui').style.display = 'flex';
         
             const model = genAI.getGenerativeModel({ 
-                // 建議使用 1.5-flash 以獲得最穩定的搜尋工具支援
-                model: "gemini-1.5-flash", 
+                model: "gemini-3.1-flash-lite-preview", 
                 // --- 核心修改：開啟 Google 搜尋能力 ---
                 tools: [{ googleSearch: {} }], 
                 systemInstruction: `你是一位專業的教學助理。學生姓名是 ${name}。
