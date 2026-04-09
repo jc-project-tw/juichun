@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>AI 助教 - Gemini 3.1</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --google-blue: #4285f4; --bg-gray: #f8f9fa; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg-gray); display: flex; justify-content: center; align-items: center; height: 100vh; }
@@ -12,20 +14,52 @@
         input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         #chat-ui { display: none; width: 100vw; height: 100vh; flex-direction: column; background: white; }
         #messages { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 15px; background: #f1f3f4; }
-        .msg { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.6; font-size: 16px; }
+        
+        .msg { 
+            max-width: 85%; 
+            padding: 14px 18px; 
+            border-radius: 18px; 
+            line-height: 1.6; 
+            font-size: 16px; 
+            position: relative;
+            word-wrap: break-word; 
+        }
         .user { align-self: flex-end; background: var(--google-blue); color: white; border-bottom-right-radius: 2px; }
-        .ai { align-self: flex-start; background: white; color: #202124; border: 1px solid #dadce0; border-bottom-left-radius: 2px; }
+        .ai { align-self: flex-start; background: white; color: #202124; border: 1px solid #dadce0; border-bottom-left-radius: 2px; padding-bottom: 35px; }
+        
+        /* Markdown 內容樣式 */
+        .msg.ai p { margin: 0 0 10px 0; }
+        .msg.ai ul, .msg.ai ol { padding-left: 20px; margin: 10px 0; }
+        .msg.ai code { background: #eee; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+        .msg.ai pre { background: #202124; color: #fff; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0; }
+        
+        /* 複製按鈕樣式 */
+        .copy-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 5px;
+            transition: color 0.2s;
+        }
+        .copy-btn:hover { color: var(--google-blue); }
+
         .input-bar { border-top: 1px solid #eee; padding: 20px; display: flex; gap: 12px; }
         #user-in { flex: 1; padding: 12px 20px; border: 1px solid #dfe1e5; border-radius: 30px; outline: none; }
         button { padding: 10px 25px; background: var(--google-blue); color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         #loading-info { font-size: 13px; color: #5f6368; margin: 10px 0; }
-        /* 正在輸入動畫的點點樣式 */
+        
+        /* 正在輸入動畫 */
         .typing { display: flex; gap: 4px; align-items: center; min-height: 24px; width: fit-content; }
         .dot { width: 6px; height: 6px; background: #5f6368; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out; }
         .dot:nth-child(1) { animation-delay: -0.32s; }
         .dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }        
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
     </style>
 </head>
 <body>
@@ -89,27 +123,23 @@
         
             const model = genAI.getGenerativeModel({ 
                 model: "gemini-3.1-flash-lite-preview", 
-                // --- 核心修改：開啟 Google 搜尋能力 ---
                 tools: [{ googleSearch: {} }], 
                 systemInstruction: `你是一位專業的教學助理。學生姓名是 ${name}。
                 你擁有這份課程大綱 (syllabus.pdf) 作為核心參考。
-        
                 【任務指令】：
                 1. 課程行政問題：如評分、時間、大綱內容，請嚴格根據 PDF 回答。
-                2. 學術擴充問題：若學生詢問課程相關的學術概念（如「質性研究」的定義、著名論文、研究方法），請務必使用 Google 搜尋工具提供最新、權威的資料與來源。
-                3. 婉拒非課程相關問題：若學生詢問生活雜事（如：天氣、運動、八卦、午餐推薦），請禮貌回答：「我是您的課程助教，目前僅能協助您處理與本課程或學術研究相關的問題喔！」
-        
-                請務必使用繁體中文回答，並在引用網路資料時標註來源。`
+                2. 學術擴充問題：若學生詢問課程相關學術概念（如「質性研究」），請務必使用 Google 搜尋工具提供資料並標註來源。
+                3. 婉拒無關問題：若學生詢問與學習無關的生活雜事，請禮貌婉拒。
+                請務必使用繁體中文回答。`
             });
         
-            // 初始設定不變
             chat = model.startChat({
                 history: [
                     { role: "user", parts: [pdfPart, { text: "這是本學期的課程大綱，請讀取並準備回答問題。" }] },
-                    { role: "model", parts: [{ text: "你好 " + name + "！我已讀完課程大綱，並已連線至 Google 搜尋。我可以協助你查詢課綱資訊或進行學術專題研究。請問今天想討論什麼？" }] }
+                    { role: "model", parts: [{ text: "你好 " + name + "！我已讀完課程大綱。我可以協助你查詢課綱資訊或進行學術研究。請問今天想討論什麼？" }] }
                 ]
             });
-            addMessage("ai", `你好 ${name}！我準備好了。除了課綱問題，如果你有想深入研究的學術主題（如質性研究），我也可以幫你搜尋文獻喔！`);
+            addMessage("ai", `你好 ${name}！我準備好了。除了課綱問題，如果你有想深入研究的學術主題，我也可以幫你搜尋文獻喔！`);
         };
 
         window.send = async () => {
@@ -125,11 +155,10 @@
             const startTime = Date.now();
         
             try {
-                // --- 關鍵優化：對話歷史管理 ---
                 let history = await chat.getHistory();
-                if (history.length > 12) { // 保留初始 PDF(2) + 最近對話(10)
-                    const initialContext = history.slice(0, 2); // 保留帶有 PDF 的初始問答
-                    const recentContext = history.slice(-10);   // 保留最近 10 筆對話
+                if (history.length > 12) {
+                    const initialContext = history.slice(0, 2);
+                    const recentContext = history.slice(-10);
                     chat.history = [...initialContext, ...recentContext];
                 }
 
@@ -157,17 +186,35 @@
             const div = document.createElement('div');
             div.className = `msg ${role}`;
             container.appendChild(div);
+            
             let i = 0;
-            const speed = 30;
+            const speed = 15; 
+            let currentText = "";
+            
             function type() {
                 if (i < text.length) {
-                    div.innerText += text.charAt(i);
+                    currentText += text.charAt(i);
+                    div.innerHTML = marked.parse(currentText);
                     i++;
                     container.scrollTop = container.scrollHeight;
                     setTimeout(type, speed);
+                } else if (role === 'ai') {
+                    addCopyButton(div, text);
                 }
             }
             type();
+        }
+
+        function addCopyButton(element, text) {
+            const btn = document.createElement('button');
+            btn.className = 'copy-btn';
+            btn.innerHTML = '<i class="far fa-copy"></i>';
+            btn.onclick = () => {
+                navigator.clipboard.writeText(text);
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(() => { btn.innerHTML = '<i class="far fa-copy"></i>'; }, 2000);
+            };
+            element.appendChild(btn);
         }
         
         function addMessage(role, text) {
