@@ -20,6 +20,28 @@
         button { padding: 10px 25px; background: var(--google-blue); color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; }
         button:disabled { background: #ccc; cursor: not-allowed; }
         #loading-info { font-size: 13px; color: #5f6368; margin: 10px 0; }
+        /* 正在輸入動畫的點點樣式 */
+        .typing {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            min-height: 24px;
+            width: fit-content;            
+        }
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: #5f6368;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }        
     </style>
 </head>
 <body>
@@ -106,21 +128,26 @@
             const btn = document.getElementById('send-btn');
             const text = inputField.value.trim();
             if (!text || btn.disabled) return;
-
+        
             addMessage("user", text);
             inputField.value = "";
             btn.disabled = true;
-
+        
+            // 顯示 AI 正在思考的動畫
+            showTypingIndicator();
+        
             try {
                 const result = await chat.sendMessage(text);
+                removeTypingIndicator(); // 移除動畫
                 addMessage("ai", result.response.text());
             } catch (error) {
+                removeTypingIndicator();
                 addMessage("ai", "連線錯誤：" + error.message);
             } finally {
                 btn.disabled = false;
             }
         };
-
+        
         function addMessage(role, text) {
             const container = document.getElementById('messages');
             const div = document.createElement('div');
@@ -129,6 +156,21 @@
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
         }
+
+        function showTypingIndicator() {
+            const container = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'msg ai';
+            div.id = 'typing-indicator';
+            div.innerHTML = `<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }        
     </script>
 </body>
 </html>
